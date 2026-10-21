@@ -8,3 +8,25 @@ build/
 local.properties
 .env
 .idea/
+# Gradle / Android build outputs
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+*.apk
+*.ap_
+*.dex
+*.class
+.idea/
+*.iml
+# Gradle / Android build outputs
+launcher/.gradle/
+launcher/build/
+launcher/app/build/
+launcher/local.properties
+*.apk
+*.ap_
+*.dex
+*.class
+.idea/
+*.iml
