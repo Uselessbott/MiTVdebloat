@@ -128,17 +128,67 @@ Read the output for errors. Apply changes in small batches where practical, and 
 
 The Android command `pm uninstall --user 0` removes an app for the primary Android user; it does **not** normally erase the preinstalled APK from the system partition. This is different from flashing firmware or permanently deleting system files, but it can still disable functions that depend on a package.
 
-### Step 7 — Install CleanYourTV (optional)
+### Step 7 — Install CleanYourTV automatically (optional)
 
-The debloat scripts and launcher are separate tasks. Debloating does not by itself install a replacement launcher.
+The CleanYourTV launcher source is already included in this repository under `launcher/`. You do **not** need to clone the upstream launcher repository separately or download a prebuilt APK.
 
-The launcher source and documentation are maintained upstream by Gathin: [CleanYourTV launcher](https://github.com/Gathin23/cleanyourtv/tree/main/launcher) · [Project website](https://cleanyour.tv).
+The installer uses the launcher source that is shipped with this repo, builds it locally, installs it to the TV, tests it, and only then changes the default Home launcher. No separate launcher download is required.
 
-Follow the launcher's current build and installation instructions. The repository describes a small native Java Android TV launcher and lists JDK 17 and Android SDK platform 34 for building it. Do not download or run an APK from an untrusted mirror.
+#### Requirements
 
-After installing it, open CleanYourTV and test app launching, navigation, settings, and input shortcuts with the remote. **Keep the stock launcher enabled until the replacement is installed and confirmed to work.** Only then consider disabling the original launcher, and only using the project's reviewed script.
+- ADB is already connected to the TV and shows as `device`.
+- Java/JDK 17 or newer is installed.
+- You are running PowerShell from the root of this repository.
 
-If Home stops working, see [Recovery](#recovery-and-restoring-your-tv) below.
+#### Run the installer
+
+If ADB is already connected:
+
+```powershell
+.\scripts\install-launcher.ps1
+```
+
+Or connect to a TV by IP from the installer:
+
+```powershell
+.\scripts\install-launcher.ps1 -TVHost 192.168.1.50
+```
+
+Replace `192.168.1.50` with your TV's actual IP address.
+
+#### What the installer does
+
+The installer follows this order deliberately:
+
+1. Checks Java, ADB, and the TV connection.
+2. Uses the **local `launcher/` directory** included in this repository.
+3. Builds the CleanYourTV release APK with the included Gradle project.
+4. Detects the TV's currently active Home launcher instead of assuming one fixed Xiaomi package.
+5. Installs CleanYourTV.
+6. Starts CleanYourTV and checks that it launches successfully.
+7. Compiles the launcher for the device where supported.
+8. Sets CleanYourTV as the Home activity.
+9. Verifies that Home now resolves to CleanYourTV.
+10. Only after successful verification does it disable the previous stock launcher.
+11. If the Home handover fails, it attempts to re-enable the previous launcher and restore it as Home.
+
+This means the installer does **not** immediately disable the stock launcher before the replacement has been installed and tested.
+
+#### Compatibility and safety
+
+The launcher installer is designed to work across **compatible Xiaomi Mi TV / Android TV devices** because it detects the active Home package instead of relying on one hard-coded Xiaomi launcher package. However, no Android TV script can honestly guarantee compatibility with every Mi TV model, firmware, region, or Google TV variant.
+
+The **launcher installer and the debloat package list are separate**. The launcher installer is intended for compatible Mi TV / Android TV devices, while the package-removal list in this repository was tested on the documented TV and must not be treated as a universal debloat list.
+
+If you need an app that is currently in the removal list, **remove that package from the removal list before running the debloat script**. If the app was already removed for user 0, a preinstalled package can usually be restored with:
+
+```powershell
+adb shell cmd package install-existing --user 0 PACKAGE_NAME
+```
+
+Replace `PACKAGE_NAME` with the actual package name. For third-party apps, reinstall them from the **Google Play Store** or another trusted official source. Do not download random APKs from unknown websites.
+
+Keep the original launcher enabled until CleanYourTV has been successfully installed and tested. If Home stops working, see [Recovery](#recovery-and-restoring-your-tv) below.
 
 ### Step 8 — Verify, then close ADB
 
@@ -332,157 +382,116 @@ com.google.android.speech.pumpkin
 com.google.android.katniss
 com.google.android.onetimeinitializer
 com.google.android.sss.authbridge
-com.google.android.apps.mediashell
-com.google.android.partnersetup
-```
-
-### Android Optional or Setup Components
-
-```text
-android.autoinstalls.config.xioami.dangal
-com.google.android.onetimeinitializer
-com.android.onetimeinitializer
-com.android.sharedstoragebackup
-com.android.backupconfirm
-com.android.statementservice
-com.android.settings.intelligence
-com.google.android.tts
-com.android.proxyhandler
-com.android.pacprocessor
-com.xiaomi.wfdsinkhelperservice
+com.google.android.apps.tv.launcherx
 ```
 
 ---
 
-## Launchers Disabled for User 0
+## Protected Packages
 
-The following launcher packages were disabled after CleanYourTV had been installed and tested:
+Do not remove these packages blindly. They were treated as protected in the documented configuration because they provide core Android, TV input, settings, connectivity, Play Services, setup, or other system functions.
 
 ```text
-com.google.android.tvlauncher
-com.google.android.leanbacklauncher
+android
+com.android.systemui
+com.android.settings
+com.android.providers.settings
+com.android.providers.media
+com.android.providers.downloads
+com.android.packageinstaller
+com.android.permissioncontroller
+com.android.bluetooth
+com.android.tv.settings
+com.google.android.gms
+com.google.android.gsf
+com.android.vending
+com.google.android.tv.frameworkpackagestubs
+com.google.android.inputmethod.latin
+com.google.android.webview
+com.google.android.backuptransport
+com.google.android.ext.services
+com.google.android.ext.shared
+com.android.defcontainer
+com.android.certinstaller
+com.android.keychain
+com.android.se
+com.android.captiveportallogin
 ```
 
-Do **not** disable the stock launcher before a working replacement is installed and verified. The active Home package differs across devices; one listed launcher may not exist or may not be active on your TV.
-
----
-
-## Protected Packages and Components
-
-These packages and components were intentionally retained on the documented device because they support core TV operation, remote control, settings, or system services.
-
-| Package / Component | Reason to Keep |
-|---|---|
-| `android` | Core Android framework |
-| `com.android.systemui` | System UI and core system interactions |
-| `com.android.tv.settings` | Android TV Settings |
-| `com.android.tv` | TV/tuner and channel functions |
-| `com.droidlogic.tvinput` | HDMI, AV, and broadcast TV input services |
-| `com.droidlogic.droidlivetv` | DroidLogic Live TV application |
-| `com.droidlogic.tv.settings` | TV display, sound, and hardware settings |
-| `com.droidlogic.tv.soundeffectsettings` | Vendor sound settings |
-| `com.droidlogic` | Core vendor services, including power and TV-related services |
-| `mitv.service` | Xiaomi TV system service and TV-control integration |
-| `com.android.bluetooth` | Bluetooth and remote-control support |
-| `com.droidlogic.ble` | Vendor Bluetooth Low Energy integration |
-| `com.google.android.tv.remote.service` | TV remote and related provider services |
-| `com.android.vending` | Google Play Store |
-| `com.google.android.gms` | Google Play Services |
-| `com.google.android.gsf` | Google Services Framework |
-| `com.google.android.tungsten.setupwraith` | Android TV setup and provisioning |
-| `com.android.providers.tv` | TV provider and channel data |
-| `com.android.providers.media` | Media provider |
-| `com.android.providers.downloads` | Download provider |
-| `com.android.providers.contacts` | Contacts and related provider infrastructure |
-| `com.android.inputdevices` | Input-device support |
-| `com.google.android.inputmethod.latin` | On-screen keyboard |
-| `com.google.android.webview` | Web content rendering |
-| `com.google.android.tv.frameworkpackagestubs` | Android TV framework compatibility |
-| `com.google.android.backuptransport` | Privileged backup integration |
-| `com.google.android.ext.services` | Android extension services |
-| `com.google.android.ext.shared` | Android extension shared components |
-| `com.android.defcontainer` | Package installation and container support |
-| `com.android.certinstaller` | Certificate installation |
-| `com.android.keychain` | System credential and key-chain support |
-| `com.android.se` | Secure Element service |
-| `com.android.captiveportallogin` | Captive portal handling |
-| `com.xiaomi.android.TV.audio` | Xiaomi TV audio integration |
-| `com.xiaomi.android.tvsetup.partnercustomizer` | Xiaomi TV setup and partner customization |
-| `com.xiaomi.mitv.res` | Xiaomi TV framework resources |
-| `com.droidlogic.overlay` | Vendor configuration overlay |
-
-This is a conservative protection list based on one tested device, not a universal dependency map. Do not disable a package simply because its name is unfamiliar or because it appears to consume memory in the background.
+The complete protected list is maintained in `packages/keep-protected.txt`. It is still not a guarantee that every listed package is required on every TV.
 
 ---
 
 ## Recovery and Restoring Your TV
 
-Before changing packages, the debloat script is intended to record their previous state, including whether a package was enabled, disabled, or not installed, which component owned Home, and the animation scales. Keep the repository's local state directory and the exact lists you applied.
-
-Preview restoration first:
+If an app disappears after debloating, first try restoring the preinstalled package for user 0:
 
 ```powershell
-.\scripts\restore.ps1 -ListOnly
-```
-
-Review the proposed actions, then apply:
-
-```powershell
-.\scripts\restore.ps1 -Apply
-```
-
-For a preinstalled system package, this ADB command may restore it for user 0:
-
-```bat
 adb shell cmd package install-existing --user 0 PACKAGE_NAME
 ```
 
-Replace `PACKAGE_NAME` with the exact package name. On some devices, `pm install-existing --user 0 PACKAGE_NAME` is the available equivalent. A command can fail if the package is absent or the firmware handles it differently.
+If a package was only disabled:
 
-Restoration does not guarantee that removed app data, settings, configuration, or third-party APKs will return. Install missing third-party apps separately from trusted sources. Review script output and verify TV functions afterward.
+```powershell
+adb shell pm enable --user 0 PACKAGE_NAME
+```
 
-### If Home is blank or the launcher fails
+For packages removed by this project's scripts, use the restore script:
 
-If ADB is still connected, try enabling the original Android TV launcher:
+```powershell
+.\scripts\restore.ps1 -ListOnly
+.\scripts\restore.ps1 -Apply
+```
 
-```bat
-adb connect 192.168.1.50:5555
+### If the Home screen is broken
+
+If CleanYourTV or another launcher is not working, re-enable a known stock launcher:
+
+```powershell
 adb shell pm enable --user 0 com.google.android.tvlauncher
+adb shell cmd package set-home-activity --user 0 com.google.android.tvlauncher
 adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME
 ```
 
-Replace `192.168.1.50` with your TV's actual IP address. If you are already connected, you do not need to run `adb connect` again. The package name may differ by model; use your backup and package report to identify the correct Home app.
+On a TV where that package does not exist, use the stock launcher package identified by the backup or by resolving the current Home activity. Do not blindly use a package name from another model.
 
-On some Google TV versions, the setup wizard (`com.google.android.tungsten.setupwraith`) can take over Home or cause problems when the stock launcher is disabled. Do not disable setup components based only on this note; inspect the specific device and keep a restoration path.
+### If you need a removed app again
 
----
-
-## Questions People Ask
-
-**Is this safe? Can it brick the TV?**  
-Nothing is flashed or rooted, and `pm uninstall --user 0` normally does not physically delete the system APK. However, removing or disabling a package the TV relies on can break functions or leave you without a working Home screen. Back up first, preview every action, make small changes, and keep ADB recovery available. No script can guarantee that every device is recoverable.
-
-**What about firmware updates?**  
-The documented list includes `com.xiaomi.mitv.updateservice`. Removing the update service for user 0 may affect update behavior. Understand this trade-off before applying that entry. Keep a note of changes and restore the relevant package when needed.
-
-**Will apps stop working?**  
-It depends on the packages changed. The launcher is intended to list and launch installed apps, but removed dependencies or vendor-specific behavior may affect individual apps. Test your streaming apps and inputs after each change.
-
-**Is ADB a security risk?**  
-ADB grants powerful debugging access to an authorized computer. Network ADB is not encrypted like a typical secure remote-administration channel. Only authorize a computer you trust; disable USB and network debugging and revoke authorizations when finished.
-
-**Can I just download the launcher APK?**  
-Follow the upstream project's current build/install instructions. Do not install an APK from an unknown website. Building from source lets you inspect the code and verify what you install.
+If the package is in the removal list and you still need it, remove that package from the removal list before running the debloat process on a fresh setup. If it has already been removed for user 0 and the APK remains preinstalled, use `cmd package install-existing` as shown above. Third-party apps can be reinstalled from the Google Play Store or another trusted official source.
 
 ---
 
-## Contributing
+## Safety Notes
 
-Useful contributions include package lists tested on other TV models, device-specific dependency notes, bug reports, and launcher improvements. Include the TV model, Android/Google TV version, and exactly what was tested. Remove personal information such as Wi-Fi names, IP addresses, serial numbers, and account details from logs before posting them.
+- **No root:** the scripts use ADB and normal Android package-management commands.
+- **No firmware flashing:** this project does not flash system partitions or replace the TV's firmware.
+- **No physical deletion:** `pm uninstall --user 0` normally removes the package only for user 0; the factory APK can remain on the system partition.
+- **Still not risk-free:** removing or disabling a dependency can break another feature even when the APK itself remains on the system partition.
+- **Back up first:** always run `backup.ps1` before changing packages.
+- **Preview first:** run `debloat.ps1` without `-Apply` before applying anything.
+- **Keep the stock launcher:** do not disable it until CleanYourTV is installed and verified.
+- **ADB security:** only authorize computers you trust and disable debugging when finished.
+
+### Is this safe for all Mi TVs?
+
+The **launcher installer is designed for compatible Xiaomi Mi TV / Android TV devices**, and it detects the current Home launcher instead of assuming one exact Xiaomi package. It also verifies CleanYourTV before disabling the detected stock launcher and attempts rollback if final Home verification fails.
+
+However, it is not honest to claim that any script is guaranteed safe on **every** Mi TV model, firmware, region, Android version, or Google TV variant. The **debloat package list is definitely not universal**; it was tested on the documented MiTV-AXSO0 and must be reviewed for other models.
+
+If your TV differs from the documented model, treat the launcher installer and the debloat list separately: the launcher may be compatible while one or more debloat packages may not be.
 
 ---
 
-## Licence
+## Credits
+
+CleanYourTV was created by **Gathin**. This repository includes the launcher source under `launcher/` for the convenience of this project. The launcher remains upstream work; this repository does not claim it as original work.
+
+Upstream launcher: https://github.com/Gathin23/cleanyourtv/tree/main/launcher  
+Project website: https://cleanyour.tv
+
+---
+
+## License
 
 This repository is licensed under the MIT License; see [`LICENSE`](LICENSE). The Outfit typeface is under the SIL Open Font License; see `launcher/FONT-LICENSE-OFL.txt` when the font is included.
 
