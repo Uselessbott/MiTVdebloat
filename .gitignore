@@ -1,0 +1,9 @@
+*.log
+debloat-*.log
+restore-*.log
+*.apk
+*.aab
+.gradle/
+build/
+local.properties
+.env
